@@ -37,9 +37,6 @@ def routine(baseUrl):
             'password': encryptedPassword.decode('latin1')
         }
 
-        print("Credentials on Client Side")
-        print(credentials)
-
         credentialsJSON = json.dumps(credentials)
 
         requestData = json.dumps({
@@ -50,4 +47,4 @@ def routine(baseUrl):
         result = requests.post(baseUrl + '/api/v1/user/register',
                                data=requestData)
 
-    return json.dumps(result)
+    return result.json()

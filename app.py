@@ -21,36 +21,71 @@ except Exception as exception:
 
 @app.route('/api/v1/user/authenticate', methods=['POST'])
 def authenticate():
-    if request.data:
-        # Loads request data into a dictionary from JSON received.
-        data = json.loads(request.data.decode('utf-8'))
+    if not (request.data):
+        return json.dumps({
+            'success': False,
+            'message': 'Invalid credentials received.'
+        })
 
-        return json.dumps(data)
-    else:
-        return json.dumps({'message': 'invalid credentials received.'})
-    # data = json.load(request.data.decode(),
-    #                  object_hook=lambda d: SimpleNamespace(**d))
-    # result = database.loadPrivateKey(data.username)
-    # print()
+    # Loads request data into a dictionary from JSON received.
+    data = json.loads(request.data)
 
-    # if (result):
-    #     userPK = rsa.PrivateKey(result)
+    # Unpack data received
+    string_public_pkcs = data[
+        'public_key']  # Public key pkcs decoded in 'utf-8'
+    string_credentials = data['credentials']  # Credentials decoded in 'latin1'
+
+    # Load the loadable string from the database for the current user
+    string_private_pkcs = database.loadPrivateKey(string_public_pkcs)
+
+    if not (string_private_pkcs):
+        return json.dumps({
+            'success': False,
+            'message': 'Could not find private key.'
+        })
+
+    bytes_private_pkcs = string_private_pkcs.encode('utf-8')
+
+    userPrivateKey = rsa.PrivateKey.load_pkcs1(bytes_private_pkcs,
+                                               format='PEM')
+
+    bytes_encrypted_credentials = string_credentials.encode('latin1')
+
+    bytes_decrypted_credentials = rsa.decrypt(bytes_encrypted_credentials,
+                                              userPrivateKey)
+
+    clear_credentials = json.loads(
+        bytes_decrypted_credentials.decode('latin1'))
+
+    authentication = database.validatePassword(clear_credentials)
+
+    print('User authenticated. Valid credentials received.')
+    print(authentication)
+
+    return json.dumps(authentication)
 
 
 @app.route('/api/v1/user/validate', methods=['GET'])
 def verifyUser():
     if (not request.data):
-        return json.dumps({"err": "You need to provide data."})
+        return json.dumps({
+            "status": False,
+            'message': 'No data was provided.'
+        })
 
-    user = json.loads(request.data.decode())
+    user = json.loads(request.data)
 
-    print('Verifying if the user exists into the DB...')
+    print('Verifying if the user exists -> ' + user['username'])
     result = database.validateUser(user['username'])
 
-    if (result):
-        return json.dumps({"status": True, "public_key": result[2]})
-    else:
-        return json.dumps({"status": False})
+    print('Database validation result = ' + str(result['status']))
+
+    return json.dumps(result)
+
+    # if (result):
+    #     return json.dumps({"status": result, "public_key": result[2]})
+    # else:
+    #     return json.dumps({"status": False})
 
 
 @app.route('/api/v1/user/generate', methods=['POST'])
@@ -58,14 +93,14 @@ def generateKeypair():
     if not request.data:
         return json.dumps({
             'success': False,
-            'message': 'You need to provide data.'
+            'message': 'Blank data was given.'
         })
 
     # Loads the received parameters into a Dictionary
     data = json.loads(request.data)
 
+    # Verify if username was provided.
     try:
-        print('Requested Keypair for user [' + data['username'] + ']')
         username = data['username']
 
         if not username:
@@ -78,6 +113,8 @@ def generateKeypair():
             'success': False,
             'message': 'No username was provided.'
         })
+
+    # userExists = database.validateUser(username)
 
     print('Data received: ')
     (newPublicKey, newPrivateKey) = rsa.newkeys(512)
@@ -92,12 +129,8 @@ def generateKeypair():
         'private_key': string_private_pkcs
     }
 
-    # TESTSTESTSTESTSTESTSTESTSTESTSTESTSTESTS
-    print('First Generated Private PKCS')
-    print(keys['private_key'].encode('utf-8'))
-
     print('Making the request to the database.')
-    databaseRequest = database.registerKeys(data['username'], keys)
+    databaseRequest = database.registerKeys(username, keys)
 
     result = json.loads(databaseRequest)
 
@@ -151,6 +184,8 @@ def registerUser():
             'message': 'Invalid or missing public key.'
         })
 
+    # Encode credentials using the same method as client so they can be decrypted
+    # RSA Encryption accepts only bytes, so it is needed to encode the 'message'
     bytesCredentials = {
         'username': userCredentials['username'].encode('latin1'),
         'password': userCredentials['password'].encode('latin1')

@@ -5,29 +5,9 @@ from routines.register import routine as REGISTER_ROUTINE
 # Base URL for API calls
 baseUrl = 'http://localhost:5000'
 
-# Test
-
-# import rsa
-# (pubKey, privKey) = rsa.newkeys(512)
-
-# message = 'Some message.'.encode('utf-8')
-
-# encryptedMessage = rsa.encrypt(message, pubKey)
-# print(encryptedMessage)
-# print('')
-
-# stringfiedMessage = encryptedMessage.decode('latin1')
-# print(stringfiedMessage)
-# print("")
-
-# encodedMessage = stringfiedMessage.encode('latin1')
-# print(encodedMessage)
-# print('')
-
-# quit()
-
 
 def procedureSelection():
+    print('')
     print(
         '[1] Logar com um usuário existente\n[2] Registrar um novo usuário.\n[3] Sair da aplicação.'
     )
@@ -38,7 +18,7 @@ def procedureSelection():
         result = LOGIN_ROUTINE(baseUrl)
 
         if result['success']:
-            print('Usuário logado com sucesso.')
+            print('Usuário autenticado com sucesso.')
             quit()
         else:
             print(result['message'])

@@ -34,9 +34,25 @@ class Database:
         result = cls.cursor.execute(sql).fetchone()
 
         if result:
-            return True
+            return {'status': True, 'public_key': result[2]}
         else:
-            return False
+            return {'status': False}
+
+    @classmethod
+    def validatePassword(cls, credentials):
+
+        sql = "SELECT * FROM users WHERE username = '{}'".format(
+            credentials['username'])
+
+        user = cls.cursor.execute(sql).fetchone()
+
+        if not user:
+            return {'success': False, 'message': 'Invalid credentials'}
+
+        if (credentials['password'] == user[1]):
+            return {'success': True, 'message': 'Valid credentials'}
+        else:
+            return {'success': False, 'message': 'Invalid credentials'}
 
     @classmethod
     def registerKeys(cls, username, keys):
@@ -47,7 +63,9 @@ class Database:
             print('Is user registered? ' + str(registered))
 
             # If not registered:
-            if (not registered):
+            if not (registered['status']):
+
+                print('not registered, registering.')
 
                 sql = "INSERT INTO users VALUES('{}','null','{}', '{}')".format(
                     username, keys['public_key'], keys['private_key'])
@@ -79,7 +97,7 @@ class Database:
                 return json.dumps({
                     'success': False,
                     'registered': True,
-                    'message': 'User already exists.'
+                    'message': 'Username already exists.'
                 })
         else:
             return json.dumps({

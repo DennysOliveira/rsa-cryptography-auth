@@ -1,48 +1,55 @@
 import requests
+from requests.api import get
 import rsa
 import json
+from getpass import getpass
 
 
 def routine(baseUrl):
-
     # User Data input
     print('Entre com as suas credenciais:')
     inputUsername = input("Usuário: ")
-    inputPassword = input("Senha: ")
+    inputPassword = getpass("Senha: ")
+
+    if ((not inputUsername) or (not inputPassword)):
+        return {
+            'success': False,
+            'message': 'Erro: Você precisa entrar com um usuário e senha.'
+        }
 
     validationData = json.dumps({'username': inputUsername})
 
     # Make the request
-    print('Making the request to User Validation Endpoint.')
+    print('Carregando...')
     result = requests.get(baseUrl + '/api/v1/user/validate',
                           headers={'content-type': 'application/json'},
                           data=validationData)
 
     # Parse the result data into an dictionary
-    print('Parsing the result data from the last request.')
-    data = result.json()
-
-    print('User exists: ' + str(data['status']))
+    validation = result.json()
 
     # quit()
-    if (data['status']):
+    if (validation['status']):
         # Instantiate a RSA Public Key for the valid user
-        public_key = rsa.PublicKey().load_pkcs1(data['public_key'],
-                                                format='DER')
+        public_key = rsa.PublicKey.load_pkcs1(validation['public_key'],
+                                              format='PEM')
 
         # Create User Credentials as JSON and encode it to be able to be encrypted
         credentials = json.dumps({
             'username': inputUsername,
             'password': inputPassword
-        }).encode('utf-8')
+        }).encode('latin1')
 
         # Encrypt user credentials with user Public Key
         encryptedCredentials = rsa.encrypt(credentials, public_key)
 
+        # Serialize credentials so it can be sent safely over then network
+        stringCredentials = encryptedCredentials.decode('latin1')
+
         # Create the user object
         user_object = {
-            'public_key': data['public_key'],
-            'credentials': encryptedCredentials
+            'public_key': validation['public_key'],
+            'credentials': stringCredentials
         }
 
         # Dumps user object into JSON data so we can make the request
@@ -57,19 +64,16 @@ def routine(baseUrl):
         # Get back the request data and process it to a dict
         authData = authResult.json()
 
-        # Return the authentication status to the user
-        print(authData['message'])
+        if authData['success']:
+            # Return the authentication status to the user
+            return {
+                'success': authData['success'],
+                'message': 'Usuário autenticado com sucesso.'
+            }
+        else:
+            return {
+                'success': False,
+                'message': 'Usuário ou senha incorretos.'
+            }
     else:
-        print('Invalid username or password.')
-
-    # (pubK, privK) = rsa.newkeys(512)
-    # savedPubK = pubK.save_pkcs1(format='DER')
-    # print('Saved Public Key:')
-    # print(savedPubK)
-    # print(type(savedPubK))
-
-    # loadedPubK = rsa.PublicKey.load_pkcs1(savedPubK, format='DER')
-
-    # print('Loaded Public Key:')
-    # print(loadedPubK)
-    # print(type(loadedPubK))
+        return {'success': False, 'message': 'Usuário ou senha incorretos.'}
