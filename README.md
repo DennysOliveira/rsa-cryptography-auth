@@ -13,7 +13,8 @@
    * [Installation](#Installation)
    * [Usage](#Usage)
    * [Dependencies](#Dependencies)
-   * [Contributors](#Contributors)   
+   * [Contributors](#Contributors)     
+   * [License](#License)   
 <!--te-->
 
 ## Features
